@@ -1,0 +1,12 @@
+{
+  "name": "smart-site-safety",
+  "version": "1.0.0",
+  "private": true,
+  "description": "智筑安监 - 基于 AI 视觉的智慧工地安全管控平台（大创项目演示系统）",
+  "scripts": {
+    "start": "node server/server.js"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}

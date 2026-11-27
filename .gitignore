@@ -1,0 +1,7 @@
+server/data.db
+server/data.db-shm
+server/data.db-wal
+server.log
+server.err.log
+node_modules/
+.DS_Store
