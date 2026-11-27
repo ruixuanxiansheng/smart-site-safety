@@ -18,6 +18,8 @@ const filters = {
   orders: { status: '', q: '' },
 };
 
+let authView = 'login';
+
 const typeColors = {
   '未佩戴安全帽': '#f87171',
   '脚手架杆件缺失': '#fbbf24',
@@ -106,17 +108,57 @@ function loginTemplate() {
         <p class="login-sub">基于 AI 视觉的脚手架隐患识别与闭环管控</p>
         <div class="field">
           <label for="login-user">账号</label>
-          <input class="input" id="login-user" autocomplete="username" value="admin" />
+          <input class="input" id="login-user" autocomplete="username" placeholder="请输入账号" />
         </div>
         <div class="field">
           <label for="login-pass">密码</label>
-          <input class="input" id="login-pass" type="password" autocomplete="current-password" value="admin123" />
+          <input class="input" id="login-pass" type="password" autocomplete="current-password" placeholder="请输入密码" />
         </div>
         <div class="login-hint">${icon('badge-check')} 演示账号 admin / admin123</div>
         <div class="login-error" id="login-error"></div>
         <button class="btn primary" style="width:100%" id="login-btn" data-action="login">
           ${icon('log-in')} 进入平台
         </button>
+        <div style="margin-top:14px;text-align:center;font-size:13px;color:#647a76">
+          没有账号？<a href="javascript:;" data-action="show-register" style="color:#2dd4bf">立即注册</a>
+        </div>
+      </div>
+    </div>`;
+}
+
+function registerTemplate() {
+  return `
+    <div class="login-wrap">
+      <div class="login-card">
+        <div class="login-brand">
+          <div class="login-logo">${icon('shield-check')}</div>
+          <div><h1>智筑安监</h1><p>智慧工地安全管控平台</p></div>
+        </div>
+        <h2>注册账号</h2>
+        <p class="login-sub">创建管理员账号，用于登录安全管控后台</p>
+        <div class="field">
+          <label for="reg-user">账号</label>
+          <input class="input" id="reg-user" autocomplete="username" placeholder="3-20 位字母、数字或下划线" />
+        </div>
+        <div class="field">
+          <label for="reg-name">姓名</label>
+          <input class="input" id="reg-name" autocomplete="name" placeholder="用于后台显示" />
+        </div>
+        <div class="field">
+          <label for="reg-pass">密码</label>
+          <input class="input" id="reg-pass" type="password" autocomplete="new-password" placeholder="至少 6 位" />
+        </div>
+        <div class="field">
+          <label for="reg-pass2">确认密码</label>
+          <input class="input" id="reg-pass2" type="password" autocomplete="new-password" placeholder="再次输入密码" />
+        </div>
+        <div class="login-error" id="reg-error"></div>
+        <button class="btn primary" style="width:100%" id="reg-btn" data-action="register">
+          ${icon('user-plus')} 注册并登录
+        </button>
+        <div style="margin-top:14px;text-align:center;font-size:13px;color:#647a76">
+          已有账号？<a href="javascript:;" data-action="show-login" style="color:#2dd4bf">返回登录</a>
+        </div>
       </div>
     </div>`;
 }
@@ -132,6 +174,31 @@ async function handleLogin() {
     api.setToken(res.token);
     location.hash = '#/dashboard';
     render();
+  } catch (e) {
+    err.textContent = e.message;
+    btn.disabled = false;
+  }
+}
+
+async function handleRegister() {
+  const username = document.getElementById('reg-user').value.trim();
+  const name = document.getElementById('reg-name').value.trim();
+  const password = document.getElementById('reg-pass').value;
+  const password2 = document.getElementById('reg-pass2').value;
+  const err = document.getElementById('reg-error');
+  const btn = document.getElementById('reg-btn');
+  if (password !== password2) {
+    err.textContent = '两次输入的密码不一致';
+    return;
+  }
+  btn.disabled = true;
+  try {
+    const res = await api.register(username, password, name);
+    api.setToken(res.token);
+    authView = 'login';
+    location.hash = '#/dashboard';
+    render();
+    toast('注册成功，欢迎使用');
   } catch (e) {
     err.textContent = e.message;
     btn.disabled = false;
@@ -880,7 +947,7 @@ async function render() {
   }
 
   if (!api.token) {
-    app.innerHTML = loginTemplate();
+    app.innerHTML = authView === 'register' ? registerTemplate() : loginTemplate();
     paintIcons();
     return;
   }
@@ -920,6 +987,15 @@ document.addEventListener('click', async (e) => {
   const action = t.dataset.action;
 
   if (action === 'login') return handleLogin();
+  if (action === 'show-register') {
+    authView = 'register';
+    return render();
+  }
+  if (action === 'show-login') {
+    authView = 'login';
+    return render();
+  }
+  if (action === 'register') return handleRegister();
   if (action === 'logout') {
     await api.logout();
     api.clear();

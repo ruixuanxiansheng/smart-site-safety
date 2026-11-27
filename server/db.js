@@ -1,5 +1,6 @@
 const { DatabaseSync } = require('node:sqlite');
 const path = require('node:path');
+const crypto = require('node:crypto');
 
 const DB_PATH = path.join(__dirname, 'data.db');
 
@@ -100,6 +101,12 @@ function dateOnly(daysAgo) {
   return d.toISOString().slice(0, 10);
 }
 
+function hashPassword(password) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(password, salt, 64).toString('hex');
+  return `${salt}:${hash}`;
+}
+
 function seed(db) {
   const count = db.prepare('SELECT COUNT(*) AS c FROM workers').get().c;
   if (count > 0) return;
@@ -116,7 +123,7 @@ function seed(db) {
 
   db.prepare(
     'INSERT INTO users (username, password, name, role) VALUES (?, ?, ?, ?)'
-  ).run('admin', 'admin123', '系统管理员', 'admin');
+  ).run('admin', hashPassword('admin123'), '系统管理员', 'admin');
 
   const workers = [
     ['王建国', '脚手架一班', '架子工', '13800138001', 96, '在岗', '已佩戴'],

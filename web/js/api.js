@@ -45,6 +45,13 @@ class Api {
     });
   }
 
+  register(username, password, name) {
+    return this.request('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ username, password, name }),
+    });
+  }
+
   logout() {
     return this.request('/api/auth/logout', { method: 'POST' }).catch(() => {});
   }

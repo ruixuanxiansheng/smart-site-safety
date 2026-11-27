@@ -94,6 +94,20 @@ function currentTime() {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
+function hashPassword(password) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(password, salt, 64).toString('hex');
+  return `${salt}:${hash}`;
+}
+
+function verifyPassword(password, stored) {
+  if (!stored) return false;
+  if (!stored.includes(':')) return password === stored;
+  const [salt, hash] = stored.split(':');
+  const check = crypto.scryptSync(password, salt, 64).toString('hex');
+  return crypto.timingSafeEqual(Buffer.from(hash, 'hex'), Buffer.from(check, 'hex'));
+}
+
 function oneWhere(parts, values) {
   return parts.length ? `WHERE ${parts.join(' AND ')}` : '';
 }
@@ -103,15 +117,39 @@ function oneWhere(parts, values) {
 function handleAuth(req, res, url) {
   if (req.method === 'POST' && url.pathname === '/api/auth/login') {
     return readBody(req).then((body) => {
-      const row = db
-        .prepare('SELECT * FROM users WHERE username = ? AND password = ?')
-        .get(body.username || '', body.password || '');
-      if (!row) return sendJson(res, 401, { error: '账号或密码错误' });
+      const row = db.prepare('SELECT * FROM users WHERE username = ?').get(body.username || '');
+      if (!row || !verifyPassword(body.password || '', row.password)) {
+        return sendJson(res, 401, { error: '账号或密码错误' });
+      }
       const token = crypto.randomUUID();
       sessions.set(token, { id: row.id, name: row.name, role: row.role });
       return sendJson(res, 200, {
         token,
         user: { id: row.id, name: row.name, role: row.role, username: row.username },
+      });
+    }).catch(() => sendJson(res, 400, { error: '请求体格式错误' }));
+  }
+  if (req.method === 'POST' && url.pathname === '/api/auth/register') {
+    return readBody(req).then((body) => {
+      const username = String(body.username || '').trim();
+      const password = String(body.password || '');
+      const name = String(body.name || '').trim() || username;
+      if (!/^[a-zA-Z0-9_]{3,20}$/.test(username)) {
+        return sendJson(res, 400, { error: '账号需为 3-20 位字母、数字或下划线' });
+      }
+      if (password.length < 6) {
+        return sendJson(res, 400, { error: '密码至少 6 位' });
+      }
+      const exists = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
+      if (exists) return sendJson(res, 409, { error: '该账号已存在' });
+      const info = db.prepare(
+        'INSERT INTO users (username, password, name, role) VALUES (?, ?, ?, ?)'
+      ).run(username, hashPassword(password), name, 'admin');
+      const token = crypto.randomUUID();
+      sessions.set(token, { id: Number(info.lastInsertRowid), name, role: 'admin' });
+      return sendJson(res, 201, {
+        token,
+        user: { id: Number(info.lastInsertRowid), name, role: 'admin', username },
       });
     }).catch(() => sendJson(res, 400, { error: '请求体格式错误' }));
   }
